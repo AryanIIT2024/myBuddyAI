@@ -15,6 +15,7 @@ sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 MOOD_PLAYLISTS = {
     "sad": "7zNvXEjgmE1110slXAuZie",       # Motivational Songs India
+    "sadness": "7zNvXEjgmE1110slXAuZie",
     "fear": "1q3uUZUSYmro5IxJnQYD8y",      # Peaceful Piano
     "angry": "0cELuDbnKCAK4rM0TwAFIM",     # Chill Vibes India
     "radiant": "0zc6Hq9OIAengtGG6a3lfs",   # Mood Booster (renamed from happy to radiant)
