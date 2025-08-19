@@ -463,80 +463,168 @@
 #             leaderboard = leaderboard.sort_values("Streak (Days)", ascending=False)
 #             st.dataframe(leaderboard)
 
-import streamlit as st
+# import streamlit as st
+# from datetime import datetime
+# import pandas as pd
+# from emotion_analysis import get_emotion
+# from spotify_recommender import get_tracks_for_emotion
+# from deepseek_recommender import get_book_tip
+# from puzzle_recommender import get_puzzle_for_mood
+
+# # ------------------ STREAMLIT CONFIG ------------------
+# st.set_page_config(page_title="FeelBuddy", page_icon="🧠", layout="centered")
+# st.title("🧠 FeelBuddy: Your AI Partner 😊")
+
+# # ------------------ USER INPUT ------------------
+# user_input = st.text_area("How are you feeling today?")
+
+# if st.button("Analyze Mood & Recommend Songs"):
+#     if user_input:
+#         with st.spinner("Analyzing mood..."):
+#             mood, confidence = get_emotion(user_input)
+#             st.success(f"Detected Mood: {mood} ({confidence*100:.1f}%)")
+
+#             # 🎶 SONG RECOMMENDATIONS (Positive Mood Version)
+#             st.markdown("### 🎶 Recommended Songs for Your Mood")
+#             tracks = get_tracks_for_emotion(mood)
+#             if tracks:
+#                 for track in tracks:
+#                     st.markdown(f"- [{track['name']} by {track['artist']}]({track['url']})")
+#             else:
+#                 st.info("No songs found for this mood.")
+
+#             # 📚 BOOK SUGGESTION
+#             st.markdown("### 📚 Recommended Books")
+#             book_tip = get_book_tip(mood)
+#             st.info(book_tip)
+
+#             # 📝 MOOD JOURNAL
+#             new_entry = {"date": datetime.now(), "text": user_input, "mood": mood}
+#             try:
+#                 df = pd.read_csv("mood_data.csv")
+#                 df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+#             except FileNotFoundError:
+#                 df = pd.DataFrame([new_entry])
+#             df.to_csv("mood_data.csv", index=False)
+
+#             # 🧩 PUZZLE RECOMMENDATION
+#             st.markdown("### 🧩 Puzzle for Your Mood")
+#             puzzle_link = get_puzzle_for_mood(mood)
+#             st.markdown(f"[Click here to play your puzzle]({puzzle_link})")
+
+#             # 🔥 STREAK TRACKER
+#             user = "User"  # Replace with actual username if login implemented
+#             today = datetime.now().date()
+#             try:
+#                 df_streak = pd.read_csv("streak_data.csv")
+#             except FileNotFoundError:
+#                 df_streak = pd.DataFrame(columns=["user", "date"])
+
+#             already_played = ((df_streak["user"] == user) & (df_streak["date"] == str(today))).any()
+#             if not already_played:
+#                 df_streak = pd.concat(
+#                     [df_streak, pd.DataFrame([{"user": user, "date": str(today)}])],
+#                     ignore_index=True
+#                 )
+#                 df_streak.to_csv("streak_data.csv", index=False)
+#                 st.success("🎉 Puzzle logged! Your streak continues!")
+
+#             # Show current streak
+#             user_data = df_streak[df_streak["user"] == user]
+#             streak = user_data["date"].nunique()
+#             st.markdown(f"🔥 **Current Streak:** {streak} days")
+
+#             # 🏆 LEADERBOARD
+#             st.markdown("### 🏆 Puzzle Leaderboard")
+#             leaderboard = df_streak.groupby("user")["date"].nunique().reset_index()
+#             leaderboard.columns = ["User", "Streak (Days)"]
+#             leaderboard = leaderboard.sort_values("Streak (Days)", ascending=False)
+#             st.dataframe(leaderboard)
+# app.py - The single file for your hackathon app
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from datetime import datetime
 import pandas as pd
+import os
+
+# Your original Python modules are imported here
 from emotion_analysis import get_emotion
 from spotify_recommender import get_tracks_for_emotion
 from deepseek_recommender import get_book_tip
 from puzzle_recommender import get_puzzle_for_mood
 
-# ------------------ STREAMLIT CONFIG ------------------
-st.set_page_config(page_title="FeelBuddy", page_icon="🧠", layout="centered")
-st.title("🧠 FeelBuddy: Your AI Partner 😊")
+# Create a Flask application instance
+app = Flask(__name__)
+CORS(app) # Enable cross-origin requests
 
-# ------------------ USER INPUT ------------------
-user_input = st.text_area("How are you feeling today?")
+# An API endpoint to serve the HTML file
+@app.route('/')
+def serve_html():
+    # This serves the HTML file from the same directory as this script.
+    return send_from_directory(os.getcwd(), 'feelbuddy.html')
 
-if st.button("Analyze Mood & Recommend Songs"):
-    if user_input:
-        with st.spinner("Analyzing mood..."):
-            mood, confidence = get_emotion(user_input)
-            st.success(f"Detected Mood: {mood} ({confidence*100:.1f}%)")
+# An API endpoint to handle mood analysis and recommendations
+@app.route('/analyze_mood', methods=['POST'])
+def analyze_mood():
+    # Get the data from the incoming POST request
+    data = request.json
+    user_input = data.get('user_input')
 
-            # 🎶 SONG RECOMMENDATIONS (Positive Mood Version)
-            st.markdown("### 🎶 Recommended Songs for Your Mood")
-            tracks = get_tracks_for_emotion(mood)
-            if tracks:
-                for track in tracks:
-                    st.markdown(f"- [{track['name']} by {track['artist']}]({track['url']})")
-            else:
-                st.info("No songs found for this mood.")
+    if not user_input:
+        return jsonify({"error": "No user input provided"}), 400
 
-            # 📚 BOOK SUGGESTION
-            st.markdown("### 📚 Recommended Books")
-            book_tip = get_book_tip(mood)
-            st.info(book_tip)
+    # 1. Analyze mood
+    mood, confidence = get_emotion(user_input)
 
-            # 📝 MOOD JOURNAL
-            new_entry = {"date": datetime.now(), "text": user_input, "mood": mood}
-            try:
-                df = pd.read_csv("mood_data.csv")
-                df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-            except FileNotFoundError:
-                df = pd.DataFrame([new_entry])
-            df.to_csv("mood_data.csv", index=False)
+    # 2. Get recommendations
+    tracks = get_tracks_for_emotion(mood)
+    book_tip = get_book_tip(mood)
+    puzzle_link = get_puzzle_for_mood(mood)
 
-            # 🧩 PUZZLE RECOMMENDATION
-            st.markdown("### 🧩 Puzzle for Your Mood")
-            puzzle_link = get_puzzle_for_mood(mood)
-            st.markdown(f"[Click here to play your puzzle]({puzzle_link})")
+    # 3. Handle mood journal data (saving to CSV)
+    new_entry = {"date": datetime.now().isoformat(), "text": user_input, "mood": mood}
+    try:
+        df = pd.read_csv("mood_data.csv")
+        df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+    except FileNotFoundError:
+        df = pd.DataFrame([new_entry])
+    df.to_csv("mood_data.csv", index=False)
 
-            # 🔥 STREAK TRACKER
-            user = "User"  # Replace with actual username if login implemented
-            today = datetime.now().date()
-            try:
-                df_streak = pd.read_csv("streak_data.csv")
-            except FileNotFoundError:
-                df_streak = pd.DataFrame(columns=["user", "date"])
+    # 4. Handle streak data
+    user = "User"  # This could be a session ID or username in a real app
+    today = datetime.now().date()
+    try:
+        df_streak = pd.read_csv("streak_data.csv")
+    except FileNotFoundError:
+        df_streak = pd.DataFrame(columns=["user", "date"])
+    
+    already_played = ((df_streak["user"] == user) & (df_streak["date"] == str(today))).any()
+    if not already_played:
+        df_streak = pd.concat([df_streak, pd.DataFrame([{"user": user, "date": str(today)}])], ignore_index=True)
+        df_streak.to_csv("streak_data.csv", index=False)
 
-            already_played = ((df_streak["user"] == user) & (df_streak["date"] == str(today))).any()
-            if not already_played:
-                df_streak = pd.concat(
-                    [df_streak, pd.DataFrame([{"user": user, "date": str(today)}])],
-                    ignore_index=True
-                )
-                df_streak.to_csv("streak_data.csv", index=False)
-                st.success("🎉 Puzzle logged! Your streak continues!")
+    user_data = df_streak[df_streak["user"] == user]
+    streak = user_data["date"].nunique()
 
-            # Show current streak
-            user_data = df_streak[df_streak["user"] == user]
-            streak = user_data["date"].nunique()
-            st.markdown(f"🔥 **Current Streak:** {streak} days")
+    # 5. Get leaderboard data
+    leaderboard = df_streak.groupby("user")["date"].nunique().reset_index()
+    leaderboard.columns = ["User", "Streak (Days)"]
+    leaderboard = leaderboard.sort_values("Streak (Days)", ascending=False).to_dict('records')
 
-            # 🏆 LEADERBOARD
-            st.markdown("### 🏆 Puzzle Leaderboard")
-            leaderboard = df_streak.groupby("user")["date"].nunique().reset_index()
-            leaderboard.columns = ["User", "Streak (Days)"]
-            leaderboard = leaderboard.sort_values("Streak (Days)", ascending=False)
-            st.dataframe(leaderboard)
+    # Return all the data as a single JSON response
+    response = {
+        "mood": mood,
+        "confidence": confidence,
+        "songs": tracks,
+        "bookTip": book_tip,
+        "puzzleLink": puzzle_link,
+        "streak": streak,
+        "leaderboard": leaderboard,
+    }
+
+    return jsonify(response)
+
+# Run the app. This is for local development only.
+if __name__ == "__main__":
+    app.run(debug=True)

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy-AI</title>
+    <!-- Use the Inter font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Load Tailwind CSS from CDN for simplicity -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom animation for the results section */
+        @keyframes fadeInScaleUp {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fadeInScaleUp 0.5s ease-out forwards;
+        }
+        /* Custom animation for pulse effect */
+        @keyframes pulse-once {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .pulse-once {
+            animation: pulse-once 0.3s ease-in-out;
+        }
+    </style>
+    <!-- Lucide icons for a professional look -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+
+    <!-- Main container -->
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+            <!-- Header Section -->
+            <div class="p-6 sm:p-8 md:p-10 text-center bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700 text-white rounded-t-2xl">
+                <h1 class="text-3xl sm:text-4xl font-extrabold flex items-center justify-center gap-2">
+                    <span data-lucide="brain-circuit" class="w-9 h-9 animate-pulse"></span> FeelBuddy
+                </h1>
+                <p class="mt-2 text-sm sm:text-base opacity-90 font-light">Your AI Partner for Mood and Self-Care</p>
+            </div>
+
+            <!-- Main Content Section -->
+            <div class="p-6 sm:p-8 md:p-10 space-y-8">
+                <!-- User Input Area -->
+                <div class="relative">
+                    <textarea id="user-input"
+                        class="w-full h-32 p-4 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-300 placeholder-gray-400 dark:placeholder-gray-500"
+                        placeholder="How are you feeling today?"></textarea>
+                    <div class="absolute top-4 right-4 text-gray-400 dark:text-gray-500">
+                        <span data-lucide="mic" class="w-5 h-5"></span>
+                    </div>
+                </div>
+
+                <!-- Analyze Button -->
+                <div class="flex justify-center">
+                    <button id="analyze-btn"
+                        class="w-full sm:w-auto px-8 py-3 bg-indigo-500 text-white font-bold rounded-full shadow-lg hover:bg-indigo-600 transition-all duration-300 transform hover:scale-105 disabled:bg-indigo-300 dark:disabled:bg-indigo-700 disabled:cursor-not-allowed flex items-center justify-center">
+                        <span id="button-text">Analyze Mood & Recommend</span>
+                    </button>
+                </div>
+
+                <!-- Results Section Container -->
+                <div id="results-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Replaces all the 'data-lucide' attributes with actual SVG icons
+            lucide.createIcons();
+
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const userInput = document.getElementById('user-input');
+            const resultsContainer = document.getElementById('results-container');
+            const buttonText = document.getElementById('button-text');
+
+            // This function handles the button click event
+            analyzeBtn.addEventListener('click', async () => { // Changed to async function
+                const text = userInput.value.trim();
+                if (!text) {
+                    // Replaced alert with a simple message for better user experience
+                    resultsContainer.innerHTML = `<div class="p-4 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-xl transition-all duration-500">Please enter how you are feeling.</div>`;
+                    return;
+                }
+
+                // Show a loading state
+                analyzeBtn.disabled = true;
+                buttonText.innerHTML = '<span data-lucide="loader" class="animate-spin mr-2 w-5 h-5"></span> Analyzing...';
+                lucide.createIcons();
+                resultsContainer.innerHTML = ''; // Clear previous results
+
+                try {
+                    // This is the key change: a fetch call to your Flask backend
+                    const response = await fetch('/analyze_mood', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ user_input: text }),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const results = await response.json();
+                    displayResults(results);
+
+                } catch (error) {
+                    console.error('Error fetching data:', error);
+                    resultsContainer.innerHTML = `<div class="p-4 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-xl transition-all duration-500">Failed to connect to backend. Is the Python server running?</div>`;
+                } finally {
+                    // Reset button state
+                    analyzeBtn.disabled = false;
+                    buttonText.innerHTML = 'Analyze Mood & Recommend';
+                    lucide.createIcons();
+                }
+            });
+
+            // This function renders the results to the UI
+            function displayResults(results) {
+                const leaderboardRows = results.leaderboard.map(entry =>
+                    `<tr class="transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">${entry.User}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${entry['Streak (Days)']}</td>
+                    </tr>`
+                ).join('');
+
+                const songsList = results.songs.map(song =>
+                    `<li class="text-gray-600 dark:text-gray-300">
+                        - <a href="${song.url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline transition-colors duration-200">${song.name} by ${song.artist}</a>
+                    </li>`
+                ).join('');
+
+                const html = `
+                    <div class="space-y-6 animate-fade-in-up">
+                        <div class="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-xl shadow-sm border border-emerald-200 dark:border-emerald-800 pulse-once">
+                            <span data-lucide="smile" class="w-6 h-6"></span>
+                            <p class="font-semibold text-lg">
+                                Detected Mood: <span class="capitalize">${results.mood}</span> (${(results.confidence * 100).toFixed(1)}%)
+                            </p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md transition-all duration-500">
+                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                <span data-lucide="music" class="w-6 h-6"></span> Recommended Songs
+                            </h3>
+                            <ul class="space-y-2">
+                                ${songsList}
+                            </ul>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md transition-all duration-500">
+                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                <span data-lucide="book-open" class="w-6 h-6"></span> Recommended Book
+                            </h3>
+                            <p class="text-gray-600 dark:text-gray-300 italic">${results.bookTip}</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md transition-all duration-500">
+                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                <span data-lucide="puzzle" class="w-6 h-6"></span> Puzzle for Your Mood
+                            </h3>
+                            <a href="${results.puzzleLink}" target="_blank" rel="noopener noreferrer" class="inline-block px-6 py-2 bg-purple-500 text-white font-semibold rounded-full shadow-md hover:bg-purple-600 transition-all duration-300 transform hover:scale-105">
+                                Click here to play your puzzle
+                            </a>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md transition-all duration-500">
+                            <div class="flex items-center gap-2 mb-4 text-orange-500 dark:text-orange-400">
+                                <span data-lucide="award" class="w-6 h-6"></span>
+                                <p class="text-lg font-bold">Current Streak: <span class="text-2xl font-extrabold">${results.streak}</span> days</p>
+                            </div>
+                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                <span data-lucide="trophy" class="w-6 h-6"></span> Puzzle Leaderboard
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
+                                    <thead class="bg-gray-50 dark:bg-gray-700">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-tl-lg">User</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-tr-lg">Streak (Days)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                        ${leaderboardRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                resultsContainer.innerHTML = html;
+                lucide.createIcons(); // Re-render icons for dynamic content
+            }
+        });
+    </script>
+</body>
+</html>
